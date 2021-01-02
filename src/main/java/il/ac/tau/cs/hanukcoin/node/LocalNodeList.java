@@ -59,7 +59,7 @@ public class LocalNodeList {
                 time = Math.min(HanukCoinUtils.getUnixTimestamp(),
                         Math.max(otherList.get(pair).getLastSeenTimeStamp(),
                                 localList.get(pair).getLastSeenTimeStamp()));
-                localList.get(pair).updateTS(time);
+                localList.get(pair).updateTimeSignature(time);
             } else {
                 localList.put(pair, otherList.get(pair));
                 flag = true;

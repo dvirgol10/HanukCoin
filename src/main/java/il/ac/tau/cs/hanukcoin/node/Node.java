@@ -61,7 +61,7 @@ public class Node {
         this.data[1 + this.nameLen] = this.hostLen;
         System.arraycopy(host, 0, this.data, 2 + this.nameLen, this.hostLen);
         HanukCoinUtils.charIntoBytes(data, this.data.length - 6, port);
-        this.updateTS();
+        this.updateTimeSignature();
     }
 
     /**
@@ -178,7 +178,7 @@ public class Node {
     /**
      * update timestamp of the node if needed
      */
-    public void updateTS() {
+    public void updateTimeSignature() {
         int timestamp = HanukCoinUtils.getUnixTimestamp();
         if (timestamp > getLastSeenTimeStamp()) {
             HanukCoinUtils.intIntoBytes(this.data, this.getDataLength() - 4, timestamp);
@@ -190,7 +190,7 @@ public class Node {
      *
      * @param newTS new timestamp
      */
-    public void updateTS(int newTS) {
+    public void updateTimeSignature(int newTS) {
         HanukCoinUtils.intIntoBytes(this.data, this.getDataLength() - 4, newTS);
     }
 

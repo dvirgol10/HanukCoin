@@ -33,13 +33,13 @@ public class Server {
      * A set of all the domains we would like to filter
      */
     public static final Set<String> bannedDomains = new HashSet<>();//TODO can add multiple banned domains
-    public static final boolean toCheck = false; //TODO change for the start
+    public static final int NUMBER = 0; //TODO update according to the network status
     /**
      * The group name
      */
     public static String NAME = "Copper";
     /**
-     * The groups's wallet number
+     * The groups' wallet number
      */
     public static int WALLET_NUM = HanukCoinUtils.walletCode(NAME);
     /**
@@ -49,7 +49,7 @@ public class Server {
     /**
      * Port to access the specific node
      */
-    public static char PORT = 42069;
+    public static char PORT = 54321;
     /**
      * A whitelist of all the valid wallets
      */
@@ -61,26 +61,15 @@ public class Server {
 
     /**
      * Loading the node list and blockchain from  <a href="file:../../resources/blockChain">HanukCoinCopper\src\resources\blockChain</a>, <a href="file:../../resources/node_list">HanukCoinCopper\src\resources\node_list</a>
-     * Allowing the change {@link #NAME}, {@link #HOST}, {@link #PORT}, {@link #acceptPort}, {@link HanukCoinUtils#MAX_MINING_THREADS}, {@link HanukCoinUtils#BLOCKSTOSHOW}
+     * Allowing the change {@link #NAME}, {@link #HOST}, {@link #PORT}, {@link #acceptPort}, {@link HanukCoinUtils#MAX_MINING_THREADS}, {@link HanukCoinUtils#BLOCKS_TO_SHOW}
      * Adding ourselves to the node list which is in our possession (you know, just in case...)
      * Updating {@link WalletToName#walletToNameMap}, {@link Groups#blockCount}
      */
     public static void main(String[] args) {
-        HanukCoinUtils.loadFromMemory();
         if (args.length > 0) {
-            // allow changing accept port
-            NAME = args[0];
-            WALLET_NUM = HanukCoinUtils.walletCode(NAME);
-            HOST = args[1];
-            PORT = (char) Integer.parseInt(args[2]);
-            acceptPort = Integer.parseInt(args[3]);
-            if (args.length > 4)
-                HanukCoinUtils.MAX_MINING_THREADS = Integer.parseInt(args[4]);
-            if (args.length > 5)
-                HanukCoinUtils.BLOCKSTOSHOW = Integer.parseInt(args[5]);
-            if (args.length > 6)
-                HanukCoinUtils.HideHTML = Integer.parseInt(args[6]) > 0;
+            parseArguments(args);
         }
+        HanukCoinUtils.loadFromMemory();
         LocalNodeList.init(Server.NAME, Server.HOST, Server.PORT);
         WalletToName.update(LocalNodeList.localList.values());
         Groups.calcBlockCount();
@@ -91,6 +80,21 @@ public class Server {
         new Thread(ServerActive::validatingThread, "New nodes validator/five minute updater").start();
         new Thread(Server::sendHandler, "Handling queue").start();
         new Thread(Miner::startMining, "Mining Manager").start();
+    }
+
+    private static void parseArguments(String[] args) {
+        // allow changing accept port
+        NAME = args[0];
+        WALLET_NUM = HanukCoinUtils.walletCode(NAME);
+        HOST = args[1];
+        PORT = (char) Integer.parseInt(args[2]);
+        acceptPort = Integer.parseInt(args[3]);
+        if (args.length > 4)
+            HanukCoinUtils.MAX_MINING_THREADS = Integer.parseInt(args[4]);
+        if (args.length > 5)
+            HanukCoinUtils.BLOCKS_TO_SHOW = Integer.parseInt(args[5]);
+        if (args.length > 6)
+            HanukCoinUtils.SHOW_INFO_PAGE = Integer.parseInt(args[6]) > 0;
     }
 
     /**
@@ -113,7 +117,7 @@ public class Server {
     public static void exitProgram() {
         HanukCoinUtils.saveToMemory();
         //we can add more stuff to do at the end of the code
-        System.out.println("Noso why you bully me?");
+        System.out.println("Finished gracefully");
     }
 
     /**
@@ -138,13 +142,13 @@ public class Server {
          *
          * @param connectionSocket The socket to wrap
          */
-        public ClientConnection(Socket connectionSocket) { //the const is just fine
+        public ClientConnection(Socket connectionSocket) {
             this.connectionSocket = connectionSocket;
             try {
                 dataInput = new DataInputStream(connectionSocket.getInputStream());
                 dataOutput = new DataOutputStream(connectionSocket.getOutputStream());
             } catch (IOException e) {
-                // connectionThread would fail and kill thread
+                // connectionThread will fail and kill thread
             }
         }
 
@@ -152,7 +156,7 @@ public class Server {
          * Creates the socket to wrap given a host and port
          *
          * @param host The host of the desired address
-         * @param port The host of the desired address
+         * @param port The port of the desired address
          */
         public ClientConnection(String host, char port) {
             this(setUpSocket(host, port));
@@ -177,11 +181,6 @@ public class Server {
             }
         }
 
-        public static void dos(Node node) {
-            ClientConnection s = new Server.ClientConnection(node);
-            s.sendRequest();
-        }
-
         /**
          * Implementing the reading of incoming communication in a new thread
          */
@@ -190,7 +189,7 @@ public class Server {
         }
 
         /**
-         * Parse the incoming transmission using {@link Message#parseMessage(Socket, DataInputStream)}
+         * Parse the incoming transmission using {@link Message#parseMessageAndUpdateLists(Socket, DataInputStream)}
          * Updates the timestamp of ourselves to send most recent update to the sender
          * Send back a response to the incoming request using  {@link #sendResponse()}
          * <p>
@@ -199,19 +198,10 @@ public class Server {
         private void connectionThread() {
             //This function runs in a separate thread to handle the connection
             try {
-                //System.out.printf("New client!: %s:%d%n", connectionSocket.getInetAddress(), connectionSocket.getPort());
-                Message.parseMessage(this.connectionSocket, this.dataInput);
-                LocalNodeList.localList.get(new HostPortPair(HOST, PORT)).updateTS();
-                //System.out.println("Sending message as response");
-                sendResponse();
+                acceptIncomingAndTryToRespond();
             } catch (Message.IsHTTPException e) {
-                if (!HanukCoinUtils.HideHTML) {
-                    try {
-                        System.out.println("Sending HTML");
-                        sendHtml(Message.buildHtml());
-                    } catch (IOException ex) {
-                        ex.printStackTrace();
-                    }
+                if (HanukCoinUtils.SHOW_INFO_PAGE) {
+                    sendInfoPage();
                 }
             } catch (IOException | TimeoutException e) {
                 e.printStackTrace();
@@ -222,6 +212,23 @@ public class Server {
                     // ignore
                 }
             }
+        }
+
+        private void sendInfoPage() {
+            try {
+                System.out.println("Sending HTML");
+                sendHtml(Message.buildHtml());
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+
+        private void acceptIncomingAndTryToRespond() throws Message.IsHTTPException, IOException, TimeoutException {
+            //System.out.printf("New client!: %s:%d%n", connectionSocket.getInetAddress(), connectionSocket.getPort());
+            Message.parseMessageAndUpdateLists(this.connectionSocket, this.dataInput);
+            LocalNodeList.localList.get(new HostPortPair(HOST, PORT)).updateTimeSignature();
+            //System.out.println("Sending message as response");
+            sendResponse();
         }
 
         /**
@@ -257,15 +264,11 @@ public class Server {
         public void startConnection(Node node) throws UnInitializedSocket {
             if (this.connectionSocket.isConnected()) {
                 try {
-                    //System.out.println("Sending message as request");
-                    if (HanukCoinUtils.notDoS) {
-                        LocalNodeList.localList.get(new HostPortPair(HOST, PORT)).updateTS();
-                    }
-                    node.setIsActive(true);
+                    updateNodeInformation(node);
                     sendRequest();
                     //this.sendBin(Message.buildMessage(true));
 
-                    boolean isChanged = Message.parseMessage(this.connectionSocket, this.dataInput);
+                    boolean isChanged = Message.parseMessageAndUpdateLists(this.connectionSocket, this.dataInput);
                     LocalNodeList.deleteOldNodes();
                     node.setIsNew(false);
                     if (isChanged) {
@@ -285,6 +288,12 @@ public class Server {
             } else {
                 throw new UnInitializedSocket();
             }
+        }
+
+        private void updateNodeInformation(Node node) {
+            //System.out.println("Sending message as request");
+            LocalNodeList.localList.get(new HostPortPair(HOST, PORT)).updateTimeSignature();
+            node.setIsActive(true);
         }
 
         /**

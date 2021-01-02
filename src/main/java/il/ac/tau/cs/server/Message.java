@@ -178,7 +178,7 @@ public class Message {
                         "        tr:nth-child(odd) {\n" +
                         "            background-color: #8f4b04;\n" +
                         "        }\n" +
-                        "        </style><title>" + Server.NAME + " Gang Node #" + (Server.PORT - 42069) + "</title>\n" +
+                        "        </style><title>" + Server.NAME + " Node #" + (Server.NUMBER) + "</title>\n" +
                         "</head>\n" +
                         "<body style='background-color:#582b01;color:rgba(243,215,192,0.73);'>\n" +
                         "<h2>Group List</h2><br/><table class='sortable'>\n" +
@@ -213,10 +213,10 @@ public class Message {
                         node.getName() + (node.getIsNew() ? "[New]" : ""),
                         tsDisplay(node.getLastSeenTimeStamp()))));
 
-        htmlString.append("</table>\n" + "<h2>Last Blocks: ").append(HanukCoinUtils.BLOCKSTOSHOW).append("/").append(blockChain.size()).append("</h2><br/><table>\n").append("<tr>\n").append(" <th>blk#</th>\n").append(" <th>Wallet</th>\n").append(" <th>bin</th>\n").append(" </tr>");
+        htmlString.append("</table>\n" + "<h2>Last Blocks: ").append(HanukCoinUtils.BLOCKS_TO_SHOW).append("/").append(blockChain.size()).append("</h2><br/><table>\n").append("<tr>\n").append(" <th>blk#</th>\n").append(" <th>Wallet</th>\n").append(" <th>bin</th>\n").append(" </tr>");
         htmlString.append(
                 blockChain.stream()
-                        .filter(block -> block.getSerialNumber() > blockChain.size() - HanukCoinUtils.BLOCKSTOSHOW - 1)
+                        .filter(block -> block.getSerialNumber() > blockChain.size() - HanukCoinUtils.BLOCKS_TO_SHOW - 1)
                         .map(block -> String.format(
                                 "<tr><td>%d</td><td>%s</td><td style= 'height: fit-content'>%s</td></tr>",
                                 block.getSerialNumber(),
@@ -240,28 +240,28 @@ public class Message {
         return buildHtml(Message.messageIntoNodeList(messageArr), Message.messageIntoBlocks(messageArr));
     }
 
-    public static void sendNode(Node node, DataOutputStream dos) throws IOException {
-        dos.writeByte(node.getNameLen());
+    public static void sendNode(Node node, DataOutputStream dataOutputStream) throws IOException {
+        dataOutputStream.writeByte(node.getNameLen());
         for (byte b : node.getName().getBytes()) {
-            dos.writeByte(b);
+            dataOutputStream.writeByte(b);
         }
-        dos.writeByte(node.getHostLen());
+        dataOutputStream.writeByte(node.getHostLen());
         for (byte b : node.getHost().getBytes()) {
-            dos.writeByte(b);
+            dataOutputStream.writeByte(b);
         }
-        dos.writeShort(node.getPort());
-        dos.writeInt(node.getLastSeenTimeStamp());
+        dataOutputStream.writeShort(node.getPort());
+        dataOutputStream.writeInt(node.getLastSeenTimeStamp());
     }
 
-    public static void sendBlock(Block block, DataOutputStream dos) throws IOException {
-        dos.writeInt(block.getSerialNumber());
-        dos.writeInt(block.getWalletNumber());
-        dos.write(block.getPrevSig());
-        dos.writeLong(block.getPuzzle());
-        dos.write(block.getSig());
+    public static void sendBlock(Block block, DataOutputStream dataOutputStream) throws IOException {
+        dataOutputStream.writeInt(block.getSerialNumber());
+        dataOutputStream.writeInt(block.getWalletNumber());
+        dataOutputStream.write(block.getPrevSig());
+        dataOutputStream.writeLong(block.getPuzzle());
+        dataOutputStream.write(block.getSig());
     }
 
-    static boolean parseMessage(Socket connectionSocket, DataInputStream dataInput) throws IOException, IsHTTPException, TimeoutException {
+    static boolean parseMessageAndUpdateLists(Socket connectionSocket, DataInputStream dataInput) throws IOException, IsHTTPException, TimeoutException {
         long time = HanukCoinUtils.getUnixTimestamp();
         int next;
         while ((next = dataInput.readInt()) == -1) {
@@ -275,9 +275,8 @@ public class Message {
         if (next > 2)
             throw new IsHTTPException();
         next = dataInput.readInt();
-        if (next != 0xBEEF_BEEF) {
+        if (next != 0xBEEF_BEEF)
             throw new WrongFormatException();
-        }
 
         Map<HostPortPair, Node> nodeList = parseIntoNodeList(dataInput);
 
@@ -300,7 +299,7 @@ public class Message {
 
         for (int i = 0; i < nodesLen; i++) {
             Node node = Node.readFrom(dataInput);
-            node.updateTS(dataInput.readInt());
+            node.updateTimeSignature(dataInput.readInt());
             nodeList.put(new HostPortPair(node.getHost(), node.getPort()), node);
         }
 

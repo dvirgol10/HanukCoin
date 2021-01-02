@@ -20,11 +20,10 @@ import java.util.stream.Collectors;
 public class HanukCoinUtils {
     public static final int UPDATE_TIME = 300_000;//300_000;
     private static final int PUZZLE_BITS0 = 20;  // Note - we can make it lower for quick testing
-    public static int BLOCKSTOSHOW = 100;
+    public static int BLOCKS_TO_SHOW = 100;
     public static int MAX_MINING_THREADS = 500;
-    public static boolean HideHTML = false;
+    public static boolean SHOW_INFO_PAGE = true;
     public static int nZeros = HanukCoinUtils.numberOfZerosForPuzzle(LocalBlockChain.lastSN() + 1);
-    public static boolean notDoS = true;
 
 
     /**
