@@ -8,7 +8,7 @@ import java.nio.channels.SocketChannel;
 public class ServerPassive {
 
     /**
-     * Handles incoming transmission by binding the node and calling {@link Server.ClientConnection#readRunInThread()}
+     * Handles incoming transmission by binding the node and calling {@link Server.ClientConnection#runCommunicationHandlerInThread()}
      */
     public static void runServerRead() {
         ServerSocketChannel acceptSocket;
@@ -25,7 +25,7 @@ public class ServerPassive {
             try {
                 connectionSocket = acceptSocket.accept(); // this blocks
                 if (connectionSocket != null && !Server.bannedDomains.contains(connectionSocket.socket().getInetAddress().getHostName().toLowerCase()))
-                    new Server.ClientConnection(connectionSocket.socket()).readRunInThread();
+                    new Server.ClientConnection(connectionSocket.socket()).runCommunicationHandlerInThread();
                 Thread.sleep(1000);
             } catch (IOException e) {
                 System.out.println(String.format("ERROR accept:\n  %s", e.toString()));

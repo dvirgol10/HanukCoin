@@ -58,9 +58,9 @@ public class LocalBlockChain {
     /**
      * Saves the local BlockChain to memory.
      */
-    public static void save() {
+    public static void save() { //TODO add overload
         try (BufferedOutputStream outFile = new BufferedOutputStream(
-                new FileOutputStream(new File("src/resources/blockChain")))) {
+                new FileOutputStream(new File("src/resources/blockChain")))) { //TODO allow the user choose the blockchain path through the arguments parsing
             for (Block block : blockChain) {
                 outFile.write(block.getBytes());
             }
@@ -75,8 +75,7 @@ public class LocalBlockChain {
     public static void load(String path) {
         blockChain = new ArrayList<>();
 
-        try (BufferedInputStream inFile = new BufferedInputStream(
-                new FileInputStream(new File(path)))) {
+        try (BufferedInputStream inFile = new BufferedInputStream(new FileInputStream(new File(path)))) {
             byte[] bytes = new byte[36];
             while (inFile.read(bytes) != -1) {
                 blockChain.add(new Block(bytes));
@@ -90,7 +89,7 @@ public class LocalBlockChain {
     }
 
     public static void load() {
-        load("src/resources/blockChain");
+        load("src/resources/blockChain"); //TODO allow the user choose the blockchain path through the arguments parsing
     }
 
     /**

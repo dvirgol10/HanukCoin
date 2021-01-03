@@ -1,12 +1,12 @@
 package main.java.il.ac.tau.cs.server;
 
 
-import main.java.il.ac.tau.cs.hanukcoin.Groups;
+import main.java.il.ac.tau.cs.hanukcoin.GroupsBlockCount;
 import main.java.il.ac.tau.cs.hanukcoin.HanukCoinUtils;
 import main.java.il.ac.tau.cs.hanukcoin.HostPortPair;
 import main.java.il.ac.tau.cs.hanukcoin.block.LocalBlockChain;
 import main.java.il.ac.tau.cs.hanukcoin.block.Miner;
-import main.java.il.ac.tau.cs.hanukcoin.block.WalletToName;
+import main.java.il.ac.tau.cs.hanukcoin.block.WalletCodeToGroupName;
 import main.java.il.ac.tau.cs.hanukcoin.node.LocalNodeList;
 import main.java.il.ac.tau.cs.hanukcoin.node.Node;
 
@@ -32,7 +32,7 @@ public class Server {
     /**
      * A set of all the domains we would like to filter
      */
-    public static final Set<String> bannedDomains = new HashSet<>();//TODO can add multiple banned domains
+    public static final Set<String> bannedDomains = new HashSet<>(); //TODO can add multiple banned domains
     public static final int NUMBER = 0; //TODO update according to the network status
     /**
      * The group name
@@ -41,7 +41,7 @@ public class Server {
     /**
      * The groups' wallet number
      */
-    public static int WALLET_NUM = HanukCoinUtils.walletCode(NAME);
+    public static int WALLET_NUM = HanukCoinUtils.groupNameToWalletCode(NAME);
     /**
      * Host to access the specific node
      */
@@ -60,10 +60,10 @@ public class Server {
     protected static int acceptPort = 8080;
 
     /**
-     * Loading the node list and blockchain from  <a href="file:../../resources/blockChain">HanukCoinCopper\src\resources\blockChain</a>, <a href="file:../../resources/node_list">HanukCoinCopper\src\resources\node_list</a>
+     * Loading the node list and blockchain from <a href="file:../../resources/node_list">HanukCoinCopper\src\resources\node_list</a>, <a href="file:../../resources/blockChain">HanukCoinCopper\src\resources\blockChain</a>
      * Allowing the change {@link #NAME}, {@link #HOST}, {@link #PORT}, {@link #acceptPort}, {@link HanukCoinUtils#MAX_MINING_THREADS}, {@link HanukCoinUtils#BLOCKS_TO_SHOW}
      * Adding ourselves to the node list which is in our possession (you know, just in case...)
-     * Updating {@link WalletToName#walletToNameMap}, {@link Groups#blockCount}
+     * Updating {@link WalletCodeToGroupName#walletCodeToGroupNameMap}, {@link GroupsBlockCount#blockCount}
      */
     public static void main(String[] args) {
         if (args.length > 0) {
@@ -71,8 +71,8 @@ public class Server {
         }
         HanukCoinUtils.loadFromMemory();
         LocalNodeList.init(Server.NAME, Server.HOST, Server.PORT);
-        WalletToName.update(LocalNodeList.localList.values());
-        Groups.calcBlockCount();
+        WalletCodeToGroupName.update(LocalNodeList.localList.values());
+        GroupsBlockCount.calcBlockCount();
 
         Runtime.getRuntime().addShutdownHook(new Thread(Server::exitProgram, "Exit Thread"));
 
@@ -83,9 +83,8 @@ public class Server {
     }
 
     private static void parseArguments(String[] args) {
-        // allow changing accept port
-        NAME = args[0];
-        WALLET_NUM = HanukCoinUtils.walletCode(NAME);
+        NAME = args[0]; //TODO create a data structure for the server info
+        WALLET_NUM = HanukCoinUtils.groupNameToWalletCode(NAME);
         HOST = args[1];
         PORT = (char) Integer.parseInt(args[2]);
         acceptPort = Integer.parseInt(args[3]);
@@ -148,7 +147,7 @@ public class Server {
                 dataInput = new DataInputStream(connectionSocket.getInputStream());
                 dataOutput = new DataOutputStream(connectionSocket.getOutputStream());
             } catch (IOException e) {
-                // connectionThread will fail and kill thread
+                // handleIncomingConnection will fail and kill thread
             }
         }
 
@@ -184,8 +183,8 @@ public class Server {
         /**
          * Implementing the reading of incoming communication in a new thread
          */
-        public void readRunInThread() {
-            new Thread(ClientConnection.this::connectionThread).start();
+        public void runCommunicationHandlerInThread() {
+            new Thread(ClientConnection.this::handleIncomingConnection).start();
         }
 
         /**
@@ -195,7 +194,7 @@ public class Server {
          * <p>
          * If the incoming message is an HTTP request for the web page we call {@link #sendHtml(String)} with {@link Message#buildHtml()}
          */
-        private void connectionThread() {
+        private void handleIncomingConnection() {
             //This function runs in a separate thread to handle the connection
             try {
                 acceptIncomingAndTryToRespond();
@@ -226,7 +225,7 @@ public class Server {
         private void acceptIncomingAndTryToRespond() throws Message.IsHTTPException, IOException, TimeoutException {
             //System.out.printf("New client!: %s:%d%n", connectionSocket.getInetAddress(), connectionSocket.getPort());
             Message.parseMessageAndUpdateLists(this.connectionSocket, this.dataInput);
-            LocalNodeList.localList.get(new HostPortPair(HOST, PORT)).updateTimeSignature();
+            updateSelfTimeSignature();
             //System.out.println("Sending message as response");
             sendResponse();
         }
@@ -263,36 +262,40 @@ public class Server {
 
         public void startConnection(Node node) throws UnInitializedSocket {
             if (this.connectionSocket.isConnected()) {
-                try {
-                    updateNodeInformation(node);
-                    sendRequest();
-                    //this.sendBin(Message.buildMessage(true));
-
-                    boolean isChanged = Message.parseMessageAndUpdateLists(this.connectionSocket, this.dataInput);
-                    LocalNodeList.deleteOldNodes();
-                    node.setIsNew(false);
-                    if (isChanged) {
-                        System.out.println("The node list and blockchain have changed");
-                        ServerActive.chooseAndSend();
-                    }
-                    node.setIsActive(false);
-                    this.connectionSocket.close();
-                    Thread.currentThread().interrupt();
-                } catch (TimeoutException e) {
-                    if (node.getIsNew()) {
-                        node.incCounterOfTries();
-                    }
-                } catch (IOException | Message.IsHTTPException e) {
-                    e.printStackTrace();
-                }
+                funcIfSocketIsConnected(node);
             } else {
                 throw new UnInitializedSocket();
             }
         }
 
-        private void updateNodeInformation(Node node) {
+        private void funcIfSocketIsConnected(Node node) {
+            try {
+                updateNodeInfo(node);
+                sendRequest();
+                //this.sendBin(Message.buildMessage(true));
+
+                boolean isChanged = Message.parseMessageAndUpdateLists(this.connectionSocket, this.dataInput);
+                LocalNodeList.deleteInactiveNodes();
+                node.setIsNew(false); // TODO understand
+                if (isChanged) {
+                    System.out.println("The node list and blockchain have changed");
+                    ServerActive.chooseAndSend();
+                }
+                node.setIsActive(false); // TODO understand
+                this.connectionSocket.close();
+                Thread.currentThread().interrupt();
+            } catch (TimeoutException e) {
+                if (node.getIsNew()) {
+                    node.incCounterOfTries();
+                }
+            } catch (IOException | Message.IsHTTPException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private void updateNodeInfo(Node node) {
             //System.out.println("Sending message as request");
-            LocalNodeList.localList.get(new HostPortPair(HOST, PORT)).updateTimeSignature();
+            updateSelfTimeSignature();
             node.setIsActive(true);
         }
 
@@ -301,7 +304,7 @@ public class Server {
          */
         private void sendResponse() {
             try {
-                sendMessage(2);
+                sendMessage(2); // TODO change to global constant
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -310,16 +313,25 @@ public class Server {
         /**
          * Incrementally sends the message according to the specified binary format
          *
-         * @param cmd indicates if the message is a response or a request
+         * @param cmd indicates if the message is a response or a request (1 for request, 2 for response)
          * @throws IOException if something went wrong
          */
         private void sendMessage(int cmd) throws IOException {
             this.dataOutput.writeInt(cmd);
-            this.dataOutput.writeInt(0xBEEF_BEEF);
-            this.dataOutput.writeInt(LocalNodeList.countTrustedNodes());
-            LocalNodeList.localList.values()
-                    .stream()
-                    .filter(Node::getIsOld)
+            this.dataOutput.writeInt(0xBEEF_BEEF); // TODO change to global constant
+            writeNodeListInfoToDataOutputStream();
+
+            this.dataOutput.writeInt(0xDEAD_DEAD); // TODO change to global constant
+            writeBlockChainInfoToDataOutputStream();
+        }
+
+        private void writeNodeListInfoToDataOutputStream() throws IOException {
+            this.dataOutput.writeInt(LocalNodeList.countOldValidatedNodes());
+            writeOldValidatedNodesToDataOutputStream();
+        }
+
+        private void writeOldValidatedNodesToDataOutputStream() {
+            LocalNodeList.getOldValidatedNodeStream()
                     .forEach(node -> {
                         try {
                             dataOutput.write(node.getData());
@@ -327,9 +339,14 @@ public class Server {
                             e.printStackTrace();
                         }
                     });
+        }
 
-            this.dataOutput.writeInt(0xDEAD_DEAD);
+        private void writeBlockChainInfoToDataOutputStream() throws IOException {
             this.dataOutput.writeInt(LocalBlockChain.blockChain.size());
+            writeBlocksToDataOutputStream();
+        }
+
+        private void writeBlocksToDataOutputStream() {
             LocalBlockChain.blockChain.forEach(block -> {
                 try {
                     dataOutput.write(block.getBytes());
@@ -345,7 +362,7 @@ public class Server {
          * @param body The content - actual html page
          * @throws IOException if something in the sending fails
          */
-        protected void sendHtml(String body) throws IOException {
+        protected void sendHtml(String body) throws IOException { //TODO organize
             int contentLen = body.length();
             HashMap<String, String> header = new HashMap<>();
             header.put("Content-Length", Integer.toString(contentLen));
@@ -361,6 +378,12 @@ public class Server {
             dataOutput.writeBytes(body);
             dataOutput.flush();
         }
+    }
+
+    private static void updateSelfTimeSignature() {
+        HostPortPair selfHostPortPair = new HostPortPair(HOST, PORT);
+        Node selfNode = LocalNodeList.localList.get(selfHostPortPair);
+        selfNode.updateTimeSignature();
     }
 
     public static class UnInitializedSocket extends Throwable {

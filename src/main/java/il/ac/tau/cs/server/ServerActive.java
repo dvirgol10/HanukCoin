@@ -1,27 +1,21 @@
 package main.java.il.ac.tau.cs.server;
 
-import main.java.il.ac.tau.cs.hanukcoin.Groups;
+import main.java.il.ac.tau.cs.hanukcoin.GroupsBlockCount;
 import main.java.il.ac.tau.cs.hanukcoin.HanukCoinUtils;
-import main.java.il.ac.tau.cs.hanukcoin.block.WalletToName;
+import main.java.il.ac.tau.cs.hanukcoin.block.WalletCodeToGroupName;
 import main.java.il.ac.tau.cs.hanukcoin.node.LocalNodeList;
 import main.java.il.ac.tau.cs.hanukcoin.node.Node;
 
 public class ServerActive {
     /**
-     * Calls {@link #runServerWrite(Node, boolean)} in a new thread
+     * Calls {@link #runServerWrite(Node)} in a new thread
      *
      * @param node the desired node we would like to communicate to
      */
     public static void writeRunInThread(Node node) {
-        // Note - in here we are in:
-        // class ServerSimpleThread (parent)
-        // class main.java.il.ac.tau.cs.server.Server.ClientConnection (dynamic inner class)
-        // class anonymous_runnable (dynamic inner child of main.java.il.ac.tau.cs.server.Server.ClientConnection)
-        // Here I call my parent instance of main.java.il.ac.tau.cs.server.Server.ClientConnection
-
         new Thread(() -> {
             try {
-                runServerWrite(node, false);
+                runServerWrite(node);
             } catch (Server.UnInitializedSocket unInitializedSocket) {
                 //unInitializedSocket.printStackTrace();
                 //System.out.println("Caught unconnected socket (node not active)");
@@ -33,9 +27,8 @@ public class ServerActive {
      * Creating a {@link Server.ClientConnection} object and using {@link Server.ClientConnection#startConnection(Node)}
      *
      * @param node     the desired node we would like to communicate to
-     * @param incoming useless
      */
-    public static void runServerWrite(Node node, boolean incoming) throws Server.UnInitializedSocket {
+    public static void runServerWrite(Node node) throws Server.UnInitializedSocket {
         new Server.ClientConnection(node).startConnection(node);
     }
 
@@ -43,7 +36,7 @@ public class ServerActive {
      * Sending a message to 3 or less nodes from {@link LocalNodeList#localList}
      */
     public static void chooseAndSend() {
-        LocalNodeList.deleteOldNodes();
+        LocalNodeList.deleteInactiveNodes();
         for (Node chosenNode : HanukCoinUtils.chooseThreeNodes()) {
             if (!chosenNode.getIsActive()) {
                 try {
@@ -86,8 +79,8 @@ public class ServerActive {
         //Thread that deletes old nodes once every 5 minuted
         chooseAndSend();
 
-        WalletToName.update(LocalNodeList.localList.values());
-        Groups.calcBlockCount();
+        WalletCodeToGroupName.update(LocalNodeList.localList.values());
+        GroupsBlockCount.calcBlockCount();
         //System.out.println(LocalBlockChain.blockChain);
 
         HanukCoinUtils.saveToMemory();

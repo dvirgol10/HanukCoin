@@ -1,7 +1,7 @@
 package main.java.il.ac.tau.cs.server;
 
 
-import main.java.il.ac.tau.cs.hanukcoin.Groups;
+import main.java.il.ac.tau.cs.hanukcoin.GroupsBlockCount;
 import main.java.il.ac.tau.cs.hanukcoin.HanukCoinUtils;
 import main.java.il.ac.tau.cs.hanukcoin.HostPortPair;
 import main.java.il.ac.tau.cs.hanukcoin.block.Block;
@@ -188,7 +188,7 @@ public class Message {
                         " <th>Hold percentage</th>" +
                         "</tr>");
 
-        htmlString.append(Groups.blockCount.entrySet().stream()
+        htmlString.append(GroupsBlockCount.blockCount.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .filter(entry -> !entry.getKey().equals("0x0"))
                 .map(entry ->
@@ -261,7 +261,7 @@ public class Message {
         dataOutputStream.write(block.getSig());
     }
 
-    static boolean parseMessageAndUpdateLists(Socket connectionSocket, DataInputStream dataInput) throws IOException, IsHTTPException, TimeoutException {
+    static boolean parseMessageAndUpdateLists(Socket connectionSocket, DataInputStream dataInput) throws IOException, IsHTTPException, TimeoutException { //TODO wrap in a class
         long time = HanukCoinUtils.getUnixTimestamp();
         int next;
         while ((next = dataInput.readInt()) == -1) {

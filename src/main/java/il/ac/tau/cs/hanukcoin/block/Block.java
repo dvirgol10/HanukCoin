@@ -107,12 +107,12 @@ public class Block {
     }
 
     /**
-     * Get the name of the group that mined the block, using {@link WalletToName}
+     * Get the name of the group that mined the block, using {@link WalletCodeToGroupName}
      *
      * @return the name of the group
      */
     public String getName() {
-        return WalletToName.walletToNameMap.getOrDefault(
+        return WalletCodeToGroupName.walletCodeToGroupNameMap.getOrDefault(
                 this.getWalletNumber(), "0x" + Integer.toHexString(this.getWalletNumber()));
     }
 
@@ -174,7 +174,7 @@ public class Block {
     public String toString() {
         return String.format("SN: %d | WN: %s | PS: %s | Puzzle: %d | Sig: %s",
                 this.getSerialNumber(),
-                WalletToName.walletToNameMap.getOrDefault(this.getWalletNumber(), String.valueOf(this.getWalletNumber())),
+                WalletCodeToGroupName.walletCodeToGroupNameMap.getOrDefault(this.getWalletNumber(), String.valueOf(this.getWalletNumber())),
                 Arrays.toString(this.getPrevSig()),
                 this.getPuzzle(),
                 Arrays.toString(this.getSig()));

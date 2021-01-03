@@ -128,19 +128,27 @@ public class HanukCoinUtils {
      *
      * @return 32bit number
      */
-    public static int walletCode(String teamName) {
-        if (!teamName.equals("0")) {
-            MessageDigest md;// may cause NoSuchAlgorithmException
-            try {
-                md = MessageDigest.getInstance("md5");
-                md.update(teamName.getBytes());
-                byte[] messageDigest = md.digest();
-                return intFromBytes(messageDigest, 0);
-            } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("Internal error - missing MD5");
-            }
+    public static int groupNameToWalletCode(String teamName) {
+        if (!isGenesisGroupName(teamName)) {
+            return generateWalletCodeForValidGroup(teamName);
         } else {
             return 0;
+        }
+    }
+
+    private static boolean isGenesisGroupName(String teamName) {
+        return teamName.equals("0");
+    }
+
+    private static int generateWalletCodeForValidGroup(String teamName) {
+        MessageDigest md; // may cause NoSuchAlgorithmException
+        try {
+            md = MessageDigest.getInstance("md5");
+            md.update(teamName.getBytes());
+            byte[] messageDigest = md.digest();
+            return intFromBytes(messageDigest, 0);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Internal error - missing MD5");
         }
     }
 
@@ -256,8 +264,8 @@ public class HanukCoinUtils {
         ArrayList<Block> chain = new ArrayList<>();
         Block genesis = HanukCoinUtils.createBlock0forTestStage();
         chain.add(genesis);
-        int wallet1 = HanukCoinUtils.walletCode("TEST1");
-        int wallet2 = HanukCoinUtils.walletCode("TEST2");
+        int wallet1 = HanukCoinUtils.groupNameToWalletCode("TEST1");
+        int wallet2 = HanukCoinUtils.groupNameToWalletCode("TEST2");
 
         for(int i = 0; i < numCoins; i++) {
             long t1 = System.nanoTime();
@@ -337,8 +345,12 @@ public class HanukCoinUtils {
 
     public static Map<String, Integer> loadWhitelistFromMemory() {
         try {
-            return new BufferedReader(new FileReader(new File("src/resources/whitelist.txt"))).lines()
-                    .collect(Collectors.toMap(x -> x, HanukCoinUtils::walletCode));
+            return new BufferedReader(
+                    new FileReader(
+                            new File("src/resources/whitelist.txt")))
+                    .lines()
+                    .collect(
+                            Collectors.toMap(teamName -> teamName, HanukCoinUtils::groupNameToWalletCode));
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }

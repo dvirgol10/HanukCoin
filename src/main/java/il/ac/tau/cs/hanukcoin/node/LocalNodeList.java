@@ -7,6 +7,7 @@ import main.java.il.ac.tau.cs.hanukcoin.HostPortPair;
 import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Class that stores a HashMap of all nodes in the network.
@@ -24,10 +25,9 @@ public class LocalNodeList {
                 .count();
     }
 
-    public static int countTrustedNodes() {
-        return (int) localList.values()
-                .stream()
-                .filter(Node::getIsOld)
+    public static int countOldValidatedNodes() {
+        return (int)
+                LocalNodeList.getOldValidatedNodeStream()
                 .count();
     }
 
@@ -97,10 +97,10 @@ public class LocalNodeList {
      * then 00000000 if old, 00000001 if new,
      * and then the bytes corresponding to {@link Node#getData()}
      */
-    public static synchronized void save() {
+    public static synchronized void save() { //TODO add overload
         try (BufferedOutputStream outFile = new BufferedOutputStream(
                 new FileOutputStream(
-                        new File("src/resources/node_list")))) {
+                        new File("src/resources/node_list")))) { //TODO allow the user choose the node list path through the arguments parsing
 
             for (Node node : localList.values()) {
                 writeInt(outFile, node.getDataLength());
@@ -126,28 +126,38 @@ public class LocalNodeList {
         out.write(num);
     }
 
+
     /**
      * loads nodes to {@link LocalNodeList#localList} from the file.
+     *
+     * @param path the path of node list file
      */
-    public static void load() {
+    private static void load(String path) {
         localList = new HashMap<>();
-        byte[] bytes;
-        int nextSize;
         try (BufferedInputStream inFile = new BufferedInputStream(
                 new FileInputStream(
-                        new File("src/resources/node_list")))) {
-            while ((nextSize = readInt(inFile)) != -1) {
-                boolean isNew = inFile.read() == 1;
-                bytes = new byte[nextSize];
-                //noinspection ResultOfMethodCallIgnored
-                inFile.read(bytes);
-                Node node = new Node(bytes);
-                node.setIsNew(isNew);
-                localList.put(new HostPortPair(node.getHost(), node.getPort()), node);
-            }
+                        new File(path)))) {
+            loadIntoLocalListFromFile(inFile);
 
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public static void load() {
+        load("src/resources/node_list"); //TODO allow the user choose the node list path through the arguments parsing
+    }
+
+    private static void loadIntoLocalListFromFile(BufferedInputStream inFile) throws IOException {
+        byte[] bytes;
+        int nextSize;
+        while ((nextSize = readInt(inFile)) != -1) {
+            boolean isNew = inFile.read() == 1;
+            bytes = new byte[nextSize];
+            inFile.read(bytes);
+            Node node = new Node(bytes);
+            node.setIsNew(isNew);
+            localList.put(new HostPortPair(node.getHost(), node.getPort()), node);
         }
     }
 
@@ -171,7 +181,14 @@ public class LocalNodeList {
     /**
      * deletes nodes that were last seen more than 30 minutes ago
      */
-    public static void deleteOldNodes() {
+    public static void deleteInactiveNodes() {
         localList.keySet().removeIf(Node::isDeletable);
+    }
+
+
+    public static Stream<Node> getOldValidatedNodeStream() {
+        return localList.values()
+                .stream()
+                .filter(Node::getIsOld);
     }
 }
