@@ -181,7 +181,7 @@ public class LocalNodeList {
     /**
      * deletes nodes that were last seen more than 30 minutes ago
      */
-    public static void deleteInactiveNodes() {
+    public static void deleteInactiveNodes() { //TODO change terminology
         localList.keySet().removeIf(Node::isDeletable);
     }
 

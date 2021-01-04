@@ -30,7 +30,6 @@ public class Node {
     private final byte nameLen;
     private final byte hostLen;
     private boolean isNew = true;
-    private boolean isActive = false;
     private int counterOfTries = 1;
     private int counterOfPassedIterations = 0;
 
@@ -93,14 +92,6 @@ public class Node {
     public static boolean isDeletable(HostPortPair pair) {
         return !pair.equals(new HostPortPair(Server.HOST, Server.PORT)) &&
                 LocalNodeList.localList.get(pair).getLastSeenTimeStamp() + 1800 < HanukCoinUtils.getUnixTimestamp();
-    }
-
-    public boolean getIsActive() {
-        return isActive;
-    }
-
-    public void setIsActive(boolean bool) {
-        isActive = bool;
     }
 
     public boolean getIsNew() {
@@ -172,7 +163,7 @@ public class Node {
      * @return whether we need to create a connection with this node
      */
     public boolean isNeededToBeSentTo() {
-        return (counterOfPassedIterations++) % counterOfTries == 0;
+        return (counterOfPassedIterations++) % getCounterOfTries() == 0;
     }
 
     /**

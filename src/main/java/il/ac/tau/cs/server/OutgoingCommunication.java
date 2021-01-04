@@ -6,7 +6,7 @@ import main.java.il.ac.tau.cs.hanukcoin.block.WalletCodeToGroupName;
 import main.java.il.ac.tau.cs.hanukcoin.node.LocalNodeList;
 import main.java.il.ac.tau.cs.hanukcoin.node.Node;
 
-public class ServerActive {
+public class OutgoingCommunication {
     /**
      * Calls {@link #runServerWrite(Node)} in a new thread
      *
@@ -24,12 +24,12 @@ public class ServerActive {
     }
 
     /**
-     * Creating a {@link Server.ClientConnection} object and using {@link Server.ClientConnection#startConnection(Node)}
+     * Creating a {@link Server.ClientConnection} object and using {@link Server.ClientConnection#sendRequestMessageToNode(Node)}
      *
-     * @param node     the desired node we would like to communicate to
+     * @param node the desired node we would like to communicate to
      */
     public static void runServerWrite(Node node) throws Server.UnInitializedSocket {
-        new Server.ClientConnection(node).startConnection(node);
+        new Server.ClientConnection(node).sendRequestMessageToNode(node);
     }
 
     /**
@@ -38,15 +38,14 @@ public class ServerActive {
     public static void chooseAndSend() {
         LocalNodeList.deleteInactiveNodes();
         for (Node chosenNode : HanukCoinUtils.chooseThreeNodes()) {
-            if (!chosenNode.getIsActive()) {
-                try {
-                    Server.sendQueue.put(chosenNode);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
+            try {
+                Server.sendQueue.put(chosenNode);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         }
     }
+
 
     /**
      * For every new node in {@link LocalNodeList#localList} we try to establish connection to validate the node
@@ -54,7 +53,10 @@ public class ServerActive {
     static void validatingThread() {
         while (true) {
             for (int i = 0; i < 3; i++) {
-                LocalNodeList.localList.values().stream().filter(node -> (node.getIsNew() && node.isNeededToBeSentTo()) || node.getName().equals("Copper"))
+                LocalNodeList.localList
+                        .values()
+                        .stream()
+                        .filter(node -> (node.getIsNew() && node.isNeededToBeSentTo()) || node.getName().equals(Server.NAME))
                         .forEach(node -> {
                             try {
                                 Server.sendQueue.put(node);
@@ -63,19 +65,19 @@ public class ServerActive {
                             }
                         });
                 try {
-                    Thread.sleep(10_000);
+                    Thread.sleep(10_000); //TODO change to constant
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
-            ServerActive.fiveMinutesUpdate();
+            OutgoingCommunication.fiveMinutesUpdate();
         }
     }
 
     /**
      * Preforming the routinely update of 3 nodes using {@link #chooseAndSend()} and deletes old (30 minutes of no activity) nodes
      */
-    public static void fiveMinutesUpdate() {//set to public tue to testing - but it can package private
+    public static void fiveMinutesUpdate() { //set to public due to testing - but it can be package private
         //Thread that deletes old nodes once every 5 minuted
         chooseAndSend();
 

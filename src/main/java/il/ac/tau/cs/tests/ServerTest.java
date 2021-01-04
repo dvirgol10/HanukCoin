@@ -25,12 +25,12 @@ public class ServerTest {
 
         //Runtime.getRuntime().addShutdownHook(new Thread(Server::exitProgram, "Exit Thread"));
 
-        //ServerActive.runServerWrite(LocalNodeList.localList.get(new HostPortPair("35.246.17.73", (char) 8080)), false);
+        //OutgoingCommunication.runServerWrite(LocalNodeList.localList.get(new HostPortPair("35.246.17.73", (char) 8080)), false);
         //Miner.startMining();
-        //ServerPassive.runServerRead();
-        //ServerActive.runServerWrite(LocalNodeList.localList.get(new HostPortPair<>("35.246.17.73", (char) 8082)), false);
+        //IncomingCommunication.setupAndRunIncomingCommunicationHandler();
+        //OutgoingCommunication.runServerWrite(LocalNodeList.localList.get(new HostPortPair<>("35.246.17.73", (char) 8082)), false);
         //LocalBlockList.blockChain.add(HanukCoinUtils.createBlock0forTestStage());
         //LocalBlockList.saveToMemory();
-        //ServerActive.fiveMinutesUpdate();
+        //OutgoingCommunication.fiveMinutesUpdate();
     }
 }

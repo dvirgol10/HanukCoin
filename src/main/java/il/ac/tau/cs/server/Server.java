@@ -76,8 +76,8 @@ public class Server {
 
         Runtime.getRuntime().addShutdownHook(new Thread(Server::exitProgram, "Exit Thread"));
 
-        new Thread(ServerPassive::runServerRead, "Handler incoming").start();
-        new Thread(ServerActive::validatingThread, "New nodes validator/five minute updater").start();
+        new Thread(IncomingCommunication::setupAndRunIncomingCommunicationHandler, "Handler incoming").start();
+        new Thread(OutgoingCommunication::validatingThread, "New nodes validator/five minute updater").start();
         new Thread(Server::sendHandler, "Handling queue").start();
         new Thread(Miner::startMining, "Mining Manager").start();
     }
@@ -103,7 +103,7 @@ public class Server {
         while (true) {
             try {
                 Node node = sendQueue.take();
-                ServerActive.writeRunInThread(node);
+                OutgoingCommunication.writeRunInThread(node);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -255,22 +255,22 @@ public class Server {
         /**
          * Implementing the outgoing communication using {@link #sendRequest()}
          * <p>
-         * if the returned message has new information we will update 3 random nodes from our {@link LocalNodeList#localList} using  {@link ServerActive#chooseAndSend()}
+         * if the returned message has new information we will update 3 random nodes from our {@link LocalNodeList#localList} using  {@link OutgoingCommunication#chooseAndSend()}
          * <p>
          * if the node is new and we didn't manage to get a response we are incrementing the tries counter
          */
 
-        public void startConnection(Node node) throws UnInitializedSocket {
+        public void sendRequestMessageToNode(Node node) throws UnInitializedSocket {
             if (this.connectionSocket.isConnected()) {
-                funcIfSocketIsConnected(node);
+                sendRequestAndUpdateIfSocketIsConnected(node);
             } else {
                 throw new UnInitializedSocket();
             }
         }
 
-        private void funcIfSocketIsConnected(Node node) {
+        private void sendRequestAndUpdateIfSocketIsConnected(Node node) {
             try {
-                updateNodeInfo(node);
+                updateSelfTimeSignature();
                 sendRequest();
                 //this.sendBin(Message.buildMessage(true));
 
@@ -279,9 +279,8 @@ public class Server {
                 node.setIsNew(false); // TODO understand
                 if (isChanged) {
                     System.out.println("The node list and blockchain have changed");
-                    ServerActive.chooseAndSend();
+                    OutgoingCommunication.chooseAndSend();
                 }
-                node.setIsActive(false); // TODO understand
                 this.connectionSocket.close();
                 Thread.currentThread().interrupt();
             } catch (TimeoutException e) {
@@ -291,12 +290,6 @@ public class Server {
             } catch (IOException | Message.IsHTTPException e) {
                 e.printStackTrace();
             }
-        }
-
-        private void updateNodeInfo(Node node) {
-            //System.out.println("Sending message as request");
-            updateSelfTimeSignature();
-            node.setIsActive(true);
         }
 
         /**

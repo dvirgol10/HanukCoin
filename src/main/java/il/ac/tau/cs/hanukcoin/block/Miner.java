@@ -2,8 +2,8 @@ package main.java.il.ac.tau.cs.hanukcoin.block;
 
 import main.java.il.ac.tau.cs.hanukcoin.ConsoleColors;
 import main.java.il.ac.tau.cs.hanukcoin.HanukCoinUtils;
+import main.java.il.ac.tau.cs.server.OutgoingCommunication;
 import main.java.il.ac.tau.cs.server.Server;
-import main.java.il.ac.tau.cs.server.ServerActive;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -32,7 +32,7 @@ public class Miner {
         }
         while (true) {
             if (!shouldMine) {
-                ServerActive.chooseAndSend();
+                OutgoingCommunication.chooseAndSend();
                 while (!shouldMine) {
                     try {
                         Thread.sleep(500);
@@ -86,7 +86,7 @@ public class Miner {
                 if (b != null) {
                     shouldMine = false; //Our block is done, stop mining while we wait for a new block to come.
                     blockChain.add(b);
-                    ServerActive.chooseAndSend();
+                    OutgoingCommunication.chooseAndSend();
                     System.out.printf("Successfully mined block with new SN:" + ConsoleColors.RED_BACKGROUND_BRIGHT + ConsoleColors.BLUE_BOLD + "%d"
                                     + ConsoleColors.RESET + "%nFrom thread " + ConsoleColors.BLUE + ConsoleColors.BLACK_BACKGROUND_BRIGHT + "%s"
                                     + ConsoleColors.RESET + "%n",
